@@ -95,7 +95,7 @@ class Pipeline:
 
         graph = make_graph([resize_node], 'upscaler', [input, scales], [output])
 
-        onnx_model = make_model(graph, opset_imports=[make_opsetid("", 21)])
+        onnx_model = make_model(graph, opset_imports=[make_opsetid("", 18)], ir_version=8)
 
         (
             providers,

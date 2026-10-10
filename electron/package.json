@@ -1,0 +1,52 @@
+{
+  "name": "voice-changer-desktop",
+  "version": "1.0.0",
+  "description": "Desktop wrapper for the Voice Changer application",
+  "main": "main.js",
+  "scripts": {
+    "start": "electron .",
+    "dist": "electron-builder --win portable"
+  },
+  "keywords": [
+    "voice-changer",
+    "electron",
+    "rvc"
+  ],
+  "license": "MIT",
+  "build": {
+    "appId": "com.deiteris.voicechanger",
+    "productName": "Voice Changer",
+    "win": {
+      "target": "portable"
+    },
+    "portable": {
+      "artifactName": "${productName} Portable.${ext}"
+    },
+    "directories": {
+      "output": "dist"
+    },
+    "extraResources": [
+      {
+        "from": "../server",
+        "to": "server",
+        "filter": [
+          "**/*",
+          "!**/.git*",
+          "!**/__pycache__/**",
+          "!**/tmp_dir/**"
+        ]
+      },
+      {
+        "from": "../client/demo/dist",
+        "to": "client/demo/dist"
+      }
+    ]
+  },
+  "devDependencies": {
+    "electron": "^33.0.0",
+    "electron-builder": "^26.15.3"
+  },
+  "allowScripts": {
+    "electron@33.4.11": true
+  }
+}
