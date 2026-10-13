@@ -2,7 +2,7 @@
 // Spawns the Python backend server, waits for it to become ready,
 // then opens the voice changer UI in a BrowserWindow.
 
-const { app, BrowserWindow, dialog } = require('electron');
+const { app, BrowserWindow, dialog, Tray, Menu } = require('electron');
 const { spawn, execSync } = require('child_process');
 const path = require('path');
 const http = require('http');
@@ -23,6 +23,8 @@ const POLL_TIMEOUT_MS = 180000; // 3 minutes — first launch downloads weights
 let mainWindow = null;
 let pythonProcess = null;
 let isQuitting = false;
+let tray = null;
+let hasShownTrayNotice = false;
 
 // ---------------------------------------------------------------------------
 // Helpers
@@ -241,11 +243,85 @@ function createMainWindow() {
   win.loadURL(SERVER_URL);
   win.show();
 
+  win.on('minimize', (event) => {
+    event.preventDefault();
+    win.hide();
+    if (!hasShownTrayNotice && tray && process.platform === 'win32') {
+      try {
+        tray.displayBalloon({
+          icon: path.join(getServerDir(), 'vc_64.ico'),
+          title: 'Voice Changer',
+          content: 'Voice Changer is running in the background. Click the tray icon to restore.',
+        });
+        hasShownTrayNotice = true;
+      } catch {
+        // Ignore balloon errors
+      }
+    }
+  });
+
   win.on('closed', () => {
     mainWindow = null;
   });
 
   return win;
+}
+
+function showMainWindow() {
+  if (!mainWindow) return;
+  if (mainWindow.isMinimized()) {
+    mainWindow.restore();
+  }
+  mainWindow.show();
+  mainWindow.focus();
+}
+
+function createTray() {
+  if (tray) return;
+
+  const iconPath = path.join(getServerDir(), 'vc_64.ico');
+  tray = new Tray(iconPath);
+
+  const contextMenu = Menu.buildFromTemplate([
+    {
+      label: 'Open Voice Changer',
+      click: () => {
+        showMainWindow();
+      },
+    },
+    {
+      label: 'Hide to Tray',
+      click: () => {
+        if (mainWindow && mainWindow.isVisible()) {
+          mainWindow.hide();
+        }
+      },
+    },
+    { type: 'separator' },
+    {
+      label: 'Quit',
+      click: () => {
+        isQuitting = true;
+        app.quit();
+      },
+    },
+  ]);
+
+  tray.setToolTip('Voice Changer');
+  tray.setContextMenu(contextMenu);
+
+  tray.on('click', () => {
+    if (!mainWindow) return;
+    if (mainWindow.isVisible()) {
+      mainWindow.hide();
+    } else {
+      showMainWindow();
+    }
+  });
+
+  tray.on('double-click', () => {
+    showMainWindow();
+  });
 }
 
 // ---------------------------------------------------------------------------
@@ -274,8 +350,9 @@ app.on('ready', async () => {
     return;
   }
 
-  // Server is ready — open the main window and close loading splash
+  // Server is ready — open the main window, create tray icon, and close loading splash
   mainWindow = createMainWindow();
+  createTray();
   loadingWindow.close();
 });
 
@@ -285,5 +362,9 @@ app.on('window-all-closed', () => {
 
 app.on('before-quit', () => {
   isQuitting = true;
+  if (tray) {
+    tray.destroy();
+    tray = null;
+  }
   killBackend();
 });
